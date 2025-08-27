@@ -1,168 +1,342 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import Image from "next/image";
+import Link from "next/link";
+import { apiClient } from "../../lib/apiClient";
+import { useRouter } from "next/navigation";
 
-export default function Home() {
-  const [isLogin, setIsLogin] = useState(true);
+// Komponen Spinner
+function Spinner() {
+  return (
+    <svg
+      className="animate-spin -ml-1 mr-2 h-5 w-5 text-white"
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+    >
+      <circle
+        className="opacity-25"
+        cx="12"
+        cy="12"
+        r="10"
+        stroke="currentColor"
+        strokeWidth="4"
+      ></circle>
+      <path
+        className="opacity-75"
+        fill="currentColor"
+        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+      ></path>
+    </svg>
+  );
+}
+
+// Komponen Modal Sukses
+function SuccessModal({ isOpen, onClose, onConfirm, message }) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0 bg-black/30 backdrop-blur-sm"
+        onClick={onClose}
+      ></div>
+
+      {/* Modal */}
+      <div className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 text-center transform transition-all animate-fade-in">
+        {/* Ikon Sukses */}
+        <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-5">
+          <svg
+            className="w-8 h-8 text-green-600"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="3"
+              d="M5 13l4 4L19 7"
+            />
+          </svg>
+        </div>
+
+        {/* Pesan */}
+        <h3 className="text-xl font-bold text-gray-800 mb-3">Berhasil!</h3>
+        <p className="text-gray-600 mb-6 text-sm leading-relaxed">{message}</p>
+
+        {/* Tombol Aksi */}
+        <div className="flex gap-3">
+          <button
+            onClick={onConfirm}
+            className="flex-1 bg-gradient-to-r from-green-500 to-emerald-600 text-white py-2 rounded-lg font-medium hover:from-green-600 hover:to-emerald-700 transition"
+          >
+            Login Sekarang
+          </button>
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-gray-500 hover:text-gray-700 rounded-lg text-sm font-medium transition"
+          >
+            Tutup
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function RegisterPage() {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const router = useRouter();
+  const errorRef = useRef(null);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!email || !password || (!isLogin && !username)) {
-      setError("Please fill in all required fields");
-      return;
-    }
-    setError("");
-    console.log("Form submitted with:", { username, email, password, isLogin });
-    // Add actual submission logic here (e.g., API call)
-  };
 
-  const handleFormSubmit = () => {
-    // Handle form submission without <form> to avoid sandbox issues
-    if (!email || !password || (!isLogin && !username)) {
-      setError("Please fill in all required fields");
+    // Reset error
+    setError("");
+    setLoading(true);
+
+    // Validasi frontend
+    if (!username || !email || !password || !confirmPassword) {
+      setError("Semua field wajib diisi");
+      errorRef.current?.scrollIntoView({ behavior: "smooth" });
+      setLoading(false);
       return;
     }
-    setError("");
-    console.log("Form submitted with:", { username, email, password, isLogin });
+
+    if (!/\S+@\S+\.\S+/.test(email)) {
+      setError("Format email tidak valid");
+      errorRef.current?.scrollIntoView({ behavior: "smooth" });
+      setLoading(false);
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError("Password dan konfirmasi tidak cocok");
+      errorRef.current?.scrollIntoView({ behavior: "smooth" });
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const data = await apiClient("/register", {
+        method: "POST",
+        body: JSON.stringify({
+          username,
+          email,
+          password,
+          confirm_password: confirmPassword,
+        }),
+      });
+
+      // Tampilkan modal sukses
+      setShowSuccessModal(true);
+    } catch (err) {
+      setError(err.message || "Gagal mendaftar. Coba lagi.");
+      errorRef.current?.scrollIntoView({ behavior: "smooth" });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="bg-gray-100 flex items-center justify-center min-h-screen p-4">
-      <div className="flex flex-col md:flex-row w-full max-w-4xl h-auto md:h-[600px] bg-white shadow-lg rounded-lg overflow-hidden">
-        {/* Left Section (Login/Register Form) */}
-        <div className="w-full md:w-1/2 p-6 md:p-10 flex items-center relative">
-          <div className="w-full">
-            <h2 className="text-2xl font-bold mb-6 text-center">
-              {isLogin ? "Login" : "Register"}
-            </h2>
-            {error && (
-              <p className="text-red-500 text-sm text-center mb-4">{error}</p>
-            )}
-            <div className="space-y-4">
-              {!isLogin && (
+    <>
+      {/* Halaman Utama */}
+      <div className="min-h-screen bg-gradient-to-br from-sky-50 via-white to-blue-50 flex items-center justify-center px-4 py-12">
+        <div className="w-full max-w-4xl bg-white shadow-2xl rounded-3xl overflow-hidden flex flex-col md:flex-row">
+          {/* Left Section - Illustration */}
+          <div className="w-full md:w-1/2 bg-gradient-to-br from-sky-500 to-blue-600 text-white p-8 md:p-10 flex flex-col justify-center items-center">
+            <div className="mt-10 w-full flex justify-center">
+              <Image
+                src="/Mobile-encryption-amico-1.png"
+                alt="Register Illustration"
+                width={300}
+                height={250}
+                className="w-full max-w-xs md:max-w-sm h-auto object-contain"
+                priority
+              />
+            </div>
+          </div>
+
+          {/* Right Section - Form */}
+          <div className="w-full md:w-1/2 p-8 md:p-10 relative bg-gradient-to-br from-white to-sky-50">
+            {/* Logo Latar Belakang */}
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <Image
+                src="/logo.png"
+                alt="Coconut Logo"
+                width={250}
+                height={340}
+                className="w-[250px] h-[340px] object-contain opacity-10"
+              />
+            </div>
+
+            <div className="relative z-10 space-y-6">
+              <h2 className="text-2xl md:text-3xl font-bold text-center text-gray-800">
+                Registrasi
+              </h2>
+
+              {/* Error Message */}
+              {error && (
+                <p
+                  ref={errorRef}
+                  className="text-red-500 text-sm text-center mb-4 bg-red-50 p-3 rounded-lg"
+                >
+                  {error}
+                </p>
+              )}
+
+              <form onSubmit={handleSubmit} className="space-y-5">
+                {/* Username */}
                 <div>
                   <label
                     htmlFor="username"
-                    className="block text-sm font-medium text-gray-700"
+                    className="block text-sm font-medium text-gray-700 mb-1"
                   >
                     Username
                   </label>
                   <input
-                    id="username"
                     type="text"
+                    id="username"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
-                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-gray-100 p-2 placeholder-gray-500"
-                    placeholder="Enter username"
-                    aria-required="true"
+                    className="w-full p-3 border border-gray-300 rounded-xl shadow-sm 
+                               focus:ring-2 focus:ring-sky-400 focus:border-sky-500 
+                               bg-white text-gray-900 placeholder-gray-500
+                               transition duration-200 ease-in-out disabled:bg-gray-100"
+                    placeholder="Masukkan username"
+                    disabled={loading}
                   />
                 </div>
-              )}
-              <div>
-                <label
-                  htmlFor="email"
-                  className="block text-sm font-medium text-gray-700"
-                >
-                  Email
-                </label>
-                <input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-gray-100 p-2 placeholder-gray-500"
-                  placeholder="Enter email"
-                  aria-required="true"
-                />
-              </div>
-              <div>
-                <label
-                  htmlFor="password"
-                  className="block text-sm font-medium text-gray-700"
-                >
-                  Password
-                </label>
-                <input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-gray-100 p-2 placeholder-gray-500"
-                  placeholder="Enter password"
-                  aria-required="true"
-                />
-              </div>
-              {isLogin && (
-                <a
-                  href="#"
-                  className="text-sm text-blue-600 hover:underline block text-center"
-                >
-                  Forgot Password?
-                </a>
-              )}
-              <button
-                onClick={handleFormSubmit}
-                className="w-full bg-blue-900 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                aria-label={isLogin ? "Login" : "Register"}
-              >
-                {isLogin ? "Login" : "Register"}
-              </button>
-              {!isLogin && (
-                <div className="flex justify-center space-x-4 mt-4">
-                  <button
-                    className="bg-gray-200 p-2 rounded-full hover:bg-gray-300"
-                    aria-label="Social login"
+
+                {/* Email */}
+                <div>
+                  <label
+                    htmlFor="email"
+                    className="block text-sm font-medium text-gray-700 mb-1"
                   >
-                    <Image
-                      src="/logo.png"
-                      alt="Social login logo"
-                      width={24}
-                      height={24}
-                    />
-                  </button>
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    id="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full p-3 border border-gray-300 rounded-xl shadow-sm 
+                               focus:ring-2 focus:ring-sky-400 focus:border-sky-500 
+                               bg-white text-gray-900 placeholder-gray-500
+                               transition duration-200 ease-in-out disabled:bg-gray-100"
+                    placeholder="Masukkan email"
+                    disabled={loading}
+                  />
                 </div>
-              )}
+
+                {/* Password */}
+                <div>
+                  <label
+                    htmlFor="password"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
+                    Password
+                  </label>
+                  <input
+                    type="password"
+                    id="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full p-3 border border-gray-300 rounded-xl shadow-sm 
+                               focus:ring-2 focus:ring-sky-400 focus:border-sky-500 
+                               bg-white text-gray-900 placeholder-gray-500
+                               transition duration-200 ease-in-out disabled:bg-gray-100"
+                    placeholder="Masukkan password"
+                    disabled={loading}
+                  />
+                </div>
+
+                {/* Confirm Password */}
+                <div>
+                  <label
+                    htmlFor="confirmPassword"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
+                    Konfirmasi Password
+                  </label>
+                  <input
+                    type="password"
+                    id="confirmPassword"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="w-full p-3 border border-gray-300 rounded-xl shadow-sm 
+                               focus:ring-2 focus:ring-sky-400 focus:border-sky-500 
+                               bg-white text-gray-900 placeholder-gray-500
+                               transition duration-200 ease-in-out disabled:bg-gray-100"
+                    placeholder="Ulangi password"
+                    disabled={loading}
+                  />
+                </div>
+
+                {/* Lupa Password */}
+                <div className="text-right">
+                  <Link
+                    href="/forgot-password"
+                    className="text-sm text-sky-600 hover:underline hover:text-sky-800 transition"
+                  >
+                    Lupa Password?
+                  </Link>
+                </div>
+
+                {/* Submit Button */}
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full bg-gradient-to-r from-blue-900 to-sky-700 text-white py-3 rounded-xl 
+                             hover:from-blue-800 hover:to-sky-600 
+                             transition-all duration-300 shadow-md hover:shadow-lg transform hover:scale-105 
+                             font-semibold flex items-center justify-center"
+                >
+                  {loading ? (
+                    <>
+                      <Spinner />
+                      Memproses...
+                    </>
+                  ) : (
+                    "Register"
+                  )}
+                </button>
+                <div className="mt-4 text-center text-sm">
+                  <span className="text-gray-600">Sudah punya akun?</span>{" "}
+                  <Link
+                    href="/login"
+                    className="text-sky-600 font-medium hover:underline"
+                  >
+                    Masuk
+                  </Link>
+                </div>
+              </form>
             </div>
-          </div>
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 opacity-20 pointer-events-none">
-            <Image
-              src="/logo.png"
-              alt="Background logo"
-              width={200}
-              height={200}
-              className="object-contain"
-            />
-          </div>
-        </div>
-        {/* Right Section */}
-        <div className="w-full md:w-1/2 bg-sky-400 text-white p-6 md:p-10 flex flex-col justify-center items-center">
-          <h1 className="text-2xl md:text-3xl font-bold mb-4">Hello, Welcome!</h1>
-          <p className="text-center mb-6">
-            {isLogin ? "Don't have an account?" : "Already have an account?"}
-          </p>
-          <button
-            onClick={() => setIsLogin(!isLogin)}
-            className="bg-white text-blue-600 font-semibold py-2 px-6 rounded-md hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-white w-40"
-            aria-label={isLogin ? "Switch to Register" : "Switch to Login"}
-          >
-            {isLogin ? "Register" : "Login"}
-          </button>
-          <div className="mt-6">
-            <Image
-              src="/private-data-amico-1.png"
-              alt="Welcome illustration"
-              width={300}
-              height={300}
-              className="object-contain w-64 md:w-96 h-64 md:h-80"
-            />
           </div>
         </div>
       </div>
-    </div>
+
+      {/* Modal Sukses */}
+      <SuccessModal
+        isOpen={showSuccessModal}
+        onClose={() => setShowSuccessModal(false)}
+        onConfirm={() => {
+          setShowSuccessModal(false);
+          router.push("/login");
+        }}
+        message="Akun berhasil dibuat! Silakan cek email Anda untuk verifikasi."
+      />
+    </>
   );
 }

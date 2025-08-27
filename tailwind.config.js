@@ -19,5 +19,13 @@ module.exports = {
     },
   },
   plugins: [],
-
-}
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'storage.googleapis.com',
+        pathname: '/a1aa/image/**',
+      },
+    ],
+  },
+};
