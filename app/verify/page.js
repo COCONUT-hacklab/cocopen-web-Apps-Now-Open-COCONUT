@@ -1,3 +1,4 @@
+
 // app/verify/page.js
 
 import VerifyContent from './VerifyContent';
